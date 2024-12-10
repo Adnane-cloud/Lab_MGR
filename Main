@@ -1,0 +1,964 @@
+import customtkinter as ctk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+
+# Configuration globale de CustomTkinter
+ctk.set_appearance_mode("dark")  # Modes : "light", "dark"
+ctk.set_default_color_theme("green")  # Thèmes disponibles : "blue", "green", "dark-blue"
+
+# Simuler une base de données avec des listes
+USERS = [
+    {"username": "admin", "password": "admin123", "role": "Administrateur"},
+    {"username": "tech", "password": "tech123", "role": "Technicien"},
+    {"username": "recep", "password": "recep123", "role": "Réceptionniste"},
+]
+
+PATIENTS = []
+EMPLOYEES = []
+TESTS = []
+STOCKS = []
+REPORTS = []
+LOGS = []
+PAYMENTS = []
+CARES = []
+
+class LoginView(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("Connexion - Gestion de Labo Médical")
+        self.geometry("400x500")
+        self.resizable(False, False)
+
+        # Logo
+        try:
+            logo_image = Image.open("assets/logo.png")
+            logo_image = logo_image.resize((100, 100), Image.ANTIALIAS)
+            self.logo = ctk.CTkImage(logo_image, size=(100, 100))
+            self.logo_label = ctk.CTkLabel(self, image=self.logo, text="")
+            self.logo_label.pack(pady=20)
+        except Exception as e:
+            print(f"Erreur de chargement du logo: {e}")
+
+        # Nom d'utilisateur
+        self.username_entry = ctk.CTkEntry(self, placeholder_text="Nom d'utilisateur")
+        self.username_entry.pack(pady=10, padx=20, fill="x")
+
+        # Mot de passe
+        self.password_entry = ctk.CTkEntry(self, placeholder_text="Mot de passe", show="*")
+        self.password_entry.pack(pady=10, padx=20, fill="x")
+
+        # Rôle
+        self.role_option = ctk.CTkOptionMenu(self, values=["Administrateur", "Technicien", "Réceptionniste"])
+        self.role_option.pack(pady=10, padx=20, fill="x")
+        self.role_option.set("Sélectionner le rôle")
+
+        # Bouton de connexion
+        self.login_button = ctk.CTkButton(self, text="Connexion", command=self.login)
+        self.login_button.pack(pady=20, padx=20, fill="x")
+
+    def login(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        role = self.role_option.get()
+
+        if role == "Sélectionner le rôle":
+            messagebox.showerror("Erreur", "Veuillez sélectionner un rôle.")
+            return
+
+        for user in USERS:
+            if user["username"] == username and user["password"] == password and user["role"] == role:
+                self.destroy()
+                Dashboard(role).mainloop()
+                return
+
+        messagebox.showerror("Erreur", "Identifiants invalides.")
+
+
+class Dashboard(ctk.CTk):
+    def __init__(self, role):
+        super().__init__()
+        self.title(f"Tableau de Bord - {role}")
+        self.geometry("1200x700")
+        self.role = role
+
+        # Charger les icônes
+        self.icons = self.load_icons()
+
+        # Barre latérale
+        self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
+        self.sidebar_frame.pack(side="left", fill="y")
+
+        # Logo dans la barre latérale
+        try:
+            logo_image = Image.open("assets/logo.png")
+            logo_image = logo_image.resize((100, 100), Image.ANTIALIAS)
+            self.sidebar_logo = ctk.CTkImage(logo_image, size=(100, 100))
+            self.sidebar_logo_label = ctk.CTkLabel(self.sidebar_frame, image=self.sidebar_logo, text="")
+            self.sidebar_logo_label.pack(pady=20)
+        except Exception as e:
+            print(f"Erreur de chargement du logo dans la barre latérale: {e}")
+
+        # Boutons de navigation
+        self.create_sidebar_buttons()
+
+        # Contenu principal
+        self.main_content_frame = ctk.CTkFrame(self, corner_radius=0)
+        self.main_content_frame.pack(side="right", fill="both", expand=True)
+
+        # Afficher le tableau de bord par défaut
+        self.show_dashboard()
+
+    def load_icons(self):
+        icons = {}
+        icon_names = ["dashboard", "patient", "employee", "test", "report", "stock", "care", "payment", "log"]
+        for name in icon_names:
+            try:
+                image = Image.open(f"assets/icons/{name}.png")
+                image = image.resize((30, 30), Image.ANTIALIAS)
+                icons[name] = ctk.CTkImage(image, size=(30, 30))
+            except Exception as e:
+                print(f"Erreur de chargement de l'icône {name}: {e}")
+                icons[name] = None
+        return icons
+
+    def create_sidebar_buttons(self):
+        # Définir les boutons avec leurs icônes et commandes
+        buttons = [
+            ("Dashboard", self.show_dashboard, "dashboard"),
+            ("Patients", self.show_patients, "patient"),
+            ("Employés", self.show_employees, "employee"),
+            ("Tests", self.show_tests, "test"),
+            ("Rapports", self.show_reports, "report"),
+            ("Stocks", self.show_stocks, "stock"),
+            ("Prise en Charge", self.show_cares, "care"),
+            ("Paiements", self.show_payments, "payment"),
+            ("Logs", self.show_logs, "log"),
+        ]
+
+        # Afficher les boutons en fonction du rôle
+        role_permissions = {
+            "Administrateur": buttons,
+            "Technicien": [btn for btn in buttons if btn[0] in ["Dashboard", "Patients", "Tests", "Rapports", "Paiements", "Logs"]],
+            "Réceptionniste": [btn for btn in buttons if btn[0] in ["Dashboard", "Patients", "Paiements", "Rapports"]],
+        }
+
+        for name, command, icon in role_permissions[self.role]:
+            btn = ctk.CTkButton(self.sidebar_frame, text=name, image=self.icons[icon], compound="left", command=command)
+            btn.pack(pady=10, padx=20, fill="x")
+
+        # Bouton de déconnexion
+        logout_button = ctk.CTkButton(self.sidebar_frame, text="Déconnexion", command=self.logout)
+        logout_button.pack(pady=20, padx=20, fill="x")
+
+    def logout(self):
+        self.destroy()
+        LoginView().mainloop()
+
+    def clear_main_content(self):
+        for widget in self.main_content_frame.winfo_children():
+            widget.destroy()
+
+    def show_dashboard(self):
+        self.clear_main_content()
+
+        # Cartes de résumé
+        summary_frame = ctk.CTkFrame(self.main_content_frame)
+        summary_frame.pack(pady=20, fill="x", padx=20)
+
+        summaries = [
+            {"title": "Patients", "count": len(PATIENTS), "icon": self.icons.get("patient")},
+            {"title": "Employés", "count": len(EMPLOYEES), "icon": self.icons.get("employee")},
+            {"title": "Tests", "count": len(TESTS), "icon": self.icons.get("test")},
+            {"title": "Rapports", "count": len(REPORTS), "icon": self.icons.get("report")},
+            {"title": "Stocks", "count": len(STOCKS), "icon": self.icons.get("stock")},
+            {"title": "Paiements", "count": len(PAYMENTS), "icon": self.icons.get("payment")},
+            {"title": "Logs", "count": len(LOGS), "icon": self.icons.get("log")},
+            {"title": "Prises en Charge", "count": len(CARES), "icon": self.icons.get("care")},
+        ]
+
+        for summary in summaries:
+            card = ctk.CTkFrame(summary_frame, width=200, height=100, corner_radius=10)
+            card.pack(side="left", padx=10, pady=10)
+
+            if summary["icon"]:
+                icon_label = ctk.CTkLabel(card, image=summary["icon"], text="")
+                icon_label.pack(pady=5)
+
+            title_label = ctk.CTkLabel(card, text=summary["title"], font=("Arial", 14))
+            title_label.pack()
+
+            count_label = ctk.CTkLabel(card, text=str(summary["count"]), font=("Arial", 20, "bold"))
+            count_label.pack()
+
+    def show_patients(self):
+        self.clear_main_content()
+        PatientView(self.main_content_frame).pack(fill="both", expand=True)
+
+    def show_employees(self):
+        self.clear_main_content()
+        EmployeeView(self.main_content_frame).pack(fill="both", expand=True)
+
+    def show_tests(self):
+        self.clear_main_content()
+        TestView(self.main_content_frame).pack(fill="both", expand=True)
+
+    def show_reports(self):
+        self.clear_main_content()
+        ReportView(self.main_content_frame).pack(fill="both", expand=True)
+
+    def show_stocks(self):
+        self.clear_main_content()
+        StockView(self.main_content_frame).pack(fill="both", expand=True)
+
+    def show_logs(self):
+        self.clear_main_content()
+        LogView(self.main_content_frame).pack(fill="both", expand=True)
+
+    def show_payments(self):
+        self.clear_main_content()
+        PaymentView(self.main_content_frame).pack(fill="both", expand=True)
+
+    def show_cares(self):
+        self.clear_main_content()
+        CareView(self.main_content_frame).pack(fill="both", expand=True)
+
+
+class PatientView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Gestion des Patients", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.name_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom du patient")
+        self.name_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.dob_entry = ctk.CTkEntry(form_frame, placeholder_text="Date de naissance (JJ/MM/AAAA)")
+        self.dob_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.gender_option = ctk.CTkOptionMenu(form_frame, values=["Homme", "Femme", "Autre"])
+        self.gender_option.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+        self.address_entry = ctk.CTkEntry(form_frame, placeholder_text="Adresse")
+        self.address_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+        self.contact_entry = ctk.CTkEntry(form_frame, placeholder_text="Numéro de contact")
+        self.contact_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Patient", command=self.add_patient)
+        self.add_button.grid(row=1, column=2, padx=10, pady=5, sticky="ew")
+
+        # Tableau des patients
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.patient_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Nom", "DOB", "Sexe", "Adresse", "Contact"), show="headings")
+        for col in ("ID", "Nom", "DOB", "Sexe", "Adresse", "Contact"):
+            self.patient_table.heading(col, text=col)
+            self.patient_table.column(col, anchor="center")
+        self.patient_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_patient(self):
+        name = self.name_entry.get()
+        dob = self.dob_entry.get()
+        gender = self.gender_option.get()
+        address = self.address_entry.get()
+        contact = self.contact_entry.get()
+
+        if not name or not dob or not gender or not address or not contact:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        patient_id = len(PATIENTS) + 1
+        PATIENTS.append({"id": patient_id, "name": name, "dob": dob, "gender": gender, "address": address, "contact": contact})
+        LOGS.append({"action": f"Ajout du patient {name}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Patient ajouté avec succès.")
+
+    def refresh_table(self):
+        for row in self.patient_table.get_children():
+            self.patient_table.delete(row)
+        for patient in PATIENTS:
+            self.patient_table.insert("", "end", values=(patient["id"], patient["name"], patient["dob"], patient["gender"], patient["address"], patient["contact"]))
+
+    def clear_form(self):
+        self.name_entry.delete(0, "end")
+        self.dob_entry.delete(0, "end")
+        self.gender_option.set("Sélectionner")
+        self.address_entry.delete(0, "end")
+        self.contact_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class EmployeeView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Gestion des Employés", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.name_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom de l'employé")
+        self.name_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.position_entry = ctk.CTkEntry(form_frame, placeholder_text="Poste")
+        self.position_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.hire_date_entry = ctk.CTkEntry(form_frame, placeholder_text="Date d'embauche (JJ/MM/AAAA)")
+        self.hire_date_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Employé", command=self.add_employee)
+        self.add_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des employés
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.employee_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Nom", "Poste", "Date d'embauche"), show="headings")
+        for col in ("ID", "Nom", "Poste", "Date d'embauche"):
+            self.employee_table.heading(col, text=col)
+            self.employee_table.column(col, anchor="center")
+        self.employee_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_employee(self):
+        name = self.name_entry.get()
+        position = self.position_entry.get()
+        hire_date = self.hire_date_entry.get()
+
+        if not name or not position or not hire_date:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        employee_id = len(EMPLOYEES) + 1
+        EMPLOYEES.append({"id": employee_id, "name": name, "position": position, "hire_date": hire_date})
+        LOGS.append({"action": f"Ajout de l'employé {name}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Employé ajouté avec succès.")
+
+    def refresh_table(self):
+        for row in self.employee_table.get_children():
+            self.employee_table.delete(row)
+        for emp in EMPLOYEES:
+            self.employee_table.insert("", "end", values=(emp["id"], emp["name"], emp["position"], emp["hire_date"]))
+
+    def clear_form(self):
+        self.name_entry.delete(0, "end")
+        self.position_entry.delete(0, "end")
+        self.hire_date_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class TestView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Gestion des Tests", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.name_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom du test")
+        self.name_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.category_entry = ctk.CTkEntry(form_frame, placeholder_text="Catégorie")
+        self.category_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.price_entry = ctk.CTkEntry(form_frame, placeholder_text="Prix")
+        self.price_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Test", command=self.add_test)
+        self.add_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des tests
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.test_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Nom du Test", "Catégorie", "Prix"), show="headings")
+        for col in ("ID", "Nom du Test", "Catégorie", "Prix"):
+            self.test_table.heading(col, text=col)
+            self.test_table.column(col, anchor="center")
+        self.test_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_test(self):
+        name = self.name_entry.get()
+        category = self.category_entry.get()
+        price = self.price_entry.get()
+
+        if not name or not category or not price:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        try:
+            price = float(price)
+        except ValueError:
+            messagebox.showerror("Erreur", "Le prix doit être un nombre.")
+            return
+
+        test_id = len(TESTS) + 1
+        TESTS.append({"id": test_id, "name": name, "category": category, "price": price})
+        LOGS.append({"action": f"Ajout du test {name}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Test ajouté avec succès.")
+
+    def refresh_table(self):
+        for row in self.test_table.get_children():
+            self.test_table.delete(row)
+        for test in TESTS:
+            self.test_table.insert("", "end", values=(test["id"], test["name"], test["category"], test["price"]))
+
+    def clear_form(self):
+        self.name_entry.delete(0, "end")
+        self.category_entry.delete(0, "end")
+        self.price_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class ReportView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Gestion des Rapports", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire de génération de rapport
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.patient_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom du Patient")
+        self.patient_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.test_entry = ctk.CTkEntry(form_frame, placeholder_text="Test effectué")
+        self.test_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.result_entry = ctk.CTkEntry(form_frame, placeholder_text="Résultat")
+        self.result_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.generate_button = ctk.CTkButton(form_frame, text="Générer Rapport", command=self.generate_report)
+        self.generate_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des rapports
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.report_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Patient", "Test", "Résultat", "Date de Création"), show="headings")
+        for col in ("ID", "Patient", "Test", "Résultat", "Date de Création"):
+            self.report_table.heading(col, text=col)
+            self.report_table.column(col, anchor="center")
+        self.report_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def generate_report(self):
+        patient = self.patient_entry.get()
+        test = self.test_entry.get()
+        result = self.result_entry.get()
+
+        if not patient or not test or not result:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        report_id = len(REPORTS) + 1
+        from datetime import datetime
+        date_created = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        REPORTS.append({"id": report_id, "patient": patient, "test": test, "result": result, "date": date_created})
+        LOGS.append({"action": f"Génération du rapport pour {patient}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Rapport généré avec succès.")
+
+    def refresh_table(self):
+        for row in self.report_table.get_children():
+            self.report_table.delete(row)
+        for report in REPORTS:
+            self.report_table.insert("", "end", values=(report["id"], report["patient"], report["test"], report["result"], report["date"]))
+
+    def clear_form(self):
+        self.patient_entry.delete(0, "end")
+        self.test_entry.delete(0, "end")
+        self.result_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class StockView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Gestion des Stocks", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.item_name_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom de l'article")
+        self.item_name_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.quantity_entry = ctk.CTkEntry(form_frame, placeholder_text="Quantité disponible")
+        self.quantity_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.min_stock_entry = ctk.CTkEntry(form_frame, placeholder_text="Seuil minimum")
+        self.min_stock_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Article", command=self.add_stock)
+        self.add_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des stocks
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.stock_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Article", "Quantité", "Seuil Minimal"), show="headings")
+        for col in ("ID", "Article", "Quantité", "Seuil Minimal"):
+            self.stock_table.heading(col, text=col)
+            self.stock_table.column(col, anchor="center")
+        self.stock_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_stock(self):
+        item_name = self.item_name_entry.get()
+        quantity = self.quantity_entry.get()
+        min_stock = self.min_stock_entry.get()
+
+        if not item_name or not quantity or not min_stock:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        try:
+            quantity = int(quantity)
+            min_stock = int(min_stock)
+        except ValueError:
+            messagebox.showerror("Erreur", "La quantité et le seuil minimal doivent être des entiers.")
+            return
+
+        stock_id = len(STOCKS) + 1
+        STOCKS.append({"id": stock_id, "item": item_name, "quantity": quantity, "min_stock": min_stock})
+        LOGS.append({"action": f"Ajout de l'article {item_name} au stock", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Article ajouté au stock avec succès.")
+
+    def refresh_table(self):
+        for row in self.stock_table.get_children():
+            self.stock_table.delete(row)
+        for stock in STOCKS:
+            self.stock_table.insert("", "end", values=(stock["id"], stock["item"], stock["quantity"], stock["min_stock"]))
+
+    def clear_form(self):
+        self.item_name_entry.delete(0, "end")
+        self.quantity_entry.delete(0, "end")
+        self.min_stock_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class LogView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Logs des Activités", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Tableau des logs
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.log_table = ctk.CTkTreeview(self.table_frame, columns=("Action", "Timestamp", "Utilisateur"), show="headings")
+        for col in ("Action", "Timestamp", "Utilisateur"):
+            self.log_table.heading(col, text=col)
+            self.log_table.column(col, anchor="center")
+        self.log_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def refresh_table(self):
+        for row in self.log_table.get_children():
+            self.log_table.delete(row)
+        for log in LOGS:
+            self.log_table.insert("", "end", values=(log["action"], log["timestamp"], log["user"]))
+
+
+class PaymentView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Gestion des Paiements", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout de paiement
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.patient_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom du Patient")
+        self.patient_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.amount_entry = ctk.CTkEntry(form_frame, placeholder_text="Montant (€)")
+        self.amount_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.method_entry = ctk.CTkEntry(form_frame, placeholder_text="Méthode de Paiement")
+        self.method_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Paiement", command=self.add_payment)
+        self.add_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des paiements
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.payment_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Patient", "Montant", "Méthode", "Date"), show="headings")
+        for col in ("ID", "Patient", "Montant", "Méthode", "Date"):
+            self.payment_table.heading(col, text=col)
+            self.payment_table.column(col, anchor="center")
+        self.payment_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_payment(self):
+        patient = self.patient_entry.get()
+        amount = self.amount_entry.get()
+        method = self.method_entry.get()
+
+        if not patient or not amount or not method:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        try:
+            amount = float(amount)
+        except ValueError:
+            messagebox.showerror("Erreur", "Le montant doit être un nombre.")
+            return
+
+        payment_id = len(PAYMENTS) + 1
+        from datetime import datetime
+        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        PAYMENTS.append({"id": payment_id, "patient": patient, "amount": amount, "method": method, "date": date})
+        LOGS.append({"action": f"Ajout du paiement de {amount}€ pour {patient}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Paiement ajouté avec succès.")
+
+    def refresh_table(self):
+        for row in self.payment_table.get_children():
+            self.payment_table.delete(row)
+        for payment in PAYMENTS:
+            self.payment_table.insert("", "end", values=(payment["id"], payment["patient"], payment["amount"], payment["method"], payment["date"]))
+
+    def clear_form(self):
+        self.patient_entry.delete(0, "end")
+        self.amount_entry.delete(0, "end")
+        self.method_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class CareView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Prise en Charge", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout de prise en charge
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.patient_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom du Patient")
+        self.patient_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.employee_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom de l'Employé (Médecin)")
+        self.employee_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.insurance_entry = ctk.CTkEntry(form_frame, placeholder_text="Compagnie d'Assurance")
+        self.insurance_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Prise en Charge", command=self.add_care)
+        self.add_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des prises en charge
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.care_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Patient", "Médecin", "Assurance", "Date"), show="headings")
+        for col in ("ID", "Patient", "Médecin", "Assurance", "Date"):
+            self.care_table.heading(col, text=col)
+            self.care_table.column(col, anchor="center")
+        self.care_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_care(self):
+        patient = self.patient_entry.get()
+        employee = self.employee_entry.get()
+        insurance = self.insurance_entry.get()
+
+        if not patient or not employee or not insurance:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        care_id = len(CARES) + 1
+        from datetime import datetime
+        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        CARES.append({"id": care_id, "patient": patient, "employee": employee, "insurance": insurance, "date": date})
+        LOGS.append({"action": f"Ajout de la prise en charge pour {patient} par {employee}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Prise en charge ajoutée avec succès.")
+
+    def refresh_table(self):
+        for row in self.care_table.get_children():
+            self.care_table.delete(row)
+        for care in CARES:
+            self.care_table.insert("", "end", values=(care["id"], care["patient"], care["employee"], care["insurance"], care["date"]))
+
+    def clear_form(self):
+        self.patient_entry.delete(0, "end")
+        self.employee_entry.delete(0, "end")
+        self.insurance_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class LogView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Logs des Activités", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Tableau des logs
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.log_table = ctk.CTkTreeview(self.table_frame, columns=("Action", "Timestamp", "Utilisateur"), show="headings")
+        for col in ("Action", "Timestamp", "Utilisateur"):
+            self.log_table.heading(col, text=col)
+            self.log_table.column(col, anchor="center")
+        self.log_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def refresh_table(self):
+        for row in self.log_table.get_children():
+            self.log_table.delete(row)
+        for log in LOGS:
+            self.log_table.insert("", "end", values=(log["action"], log["timestamp"], log["user"]))
+
+
+class PaymentView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Gestion des Paiements", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout de paiement
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.patient_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom du Patient")
+        self.patient_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.amount_entry = ctk.CTkEntry(form_frame, placeholder_text="Montant (€)")
+        self.amount_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.method_entry = ctk.CTkEntry(form_frame, placeholder_text="Méthode de Paiement")
+        self.method_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Paiement", command=self.add_payment)
+        self.add_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des paiements
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.payment_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Patient", "Montant", "Méthode", "Date"), show="headings")
+        for col in ("ID", "Patient", "Montant", "Méthode", "Date"):
+            self.payment_table.heading(col, text=col)
+            self.payment_table.column(col, anchor="center")
+        self.payment_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_payment(self):
+        patient = self.patient_entry.get()
+        amount = self.amount_entry.get()
+        method = self.method_entry.get()
+
+        if not patient or not amount or not method:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        try:
+            amount = float(amount)
+        except ValueError:
+            messagebox.showerror("Erreur", "Le montant doit être un nombre.")
+            return
+
+        payment_id = len(PAYMENTS) + 1
+        from datetime import datetime
+        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        PAYMENTS.append({"id": payment_id, "patient": patient, "amount": amount, "method": method, "date": date})
+        LOGS.append({"action": f"Ajout du paiement de {amount}€ pour {patient}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Paiement ajouté avec succès.")
+
+    def refresh_table(self):
+        for row in self.payment_table.get_children():
+            self.payment_table.delete(row)
+        for payment in PAYMENTS:
+            self.payment_table.insert("", "end", values=(payment["id"], payment["patient"], payment["amount"], payment["method"], payment["date"]))
+
+    def clear_form(self):
+        self.patient_entry.delete(0, "end")
+        self.amount_entry.delete(0, "end")
+        self.method_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class CareView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Header
+        header = ctk.CTkLabel(self, text="Prise en Charge", font=("Arial", 20))
+        header.pack(pady=10)
+
+        # Formulaire d'ajout de prise en charge
+        form_frame = ctk.CTkFrame(self)
+        form_frame.pack(pady=10, padx=20, fill="x")
+
+        self.patient_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom du Patient")
+        self.patient_entry.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        self.employee_entry = ctk.CTkEntry(form_frame, placeholder_text="Nom de l'Employé (Médecin)")
+        self.employee_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        self.insurance_entry = ctk.CTkEntry(form_frame, placeholder_text="Compagnie d'Assurance")
+        self.insurance_entry.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+        form_frame.columnconfigure(2, weight=1)
+
+        self.add_button = ctk.CTkButton(form_frame, text="Ajouter Prise en Charge", command=self.add_care)
+        self.add_button.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # Tableau des prises en charge
+        self.table_frame = ctk.CTkFrame(self)
+        self.table_frame.pack(pady=10, padx=20, fill="both", expand=True)
+
+        self.care_table = ctk.CTkTreeview(self.table_frame, columns=("ID", "Patient", "Médecin", "Assurance", "Date"), show="headings")
+        for col in ("ID", "Patient", "Médecin", "Assurance", "Date"):
+            self.care_table.heading(col, text=col)
+            self.care_table.column(col, anchor="center")
+        self.care_table.pack(fill="both", expand=True)
+
+        self.refresh_table()
+
+    def add_care(self):
+        patient = self.patient_entry.get()
+        employee = self.employee_entry.get()
+        insurance = self.insurance_entry.get()
+
+        if not patient or not employee or not insurance:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            return
+
+        care_id = len(CARES) + 1
+        from datetime import datetime
+        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        CARES.append({"id": care_id, "patient": patient, "employee": employee, "insurance": insurance, "date": date})
+        LOGS.append({"action": f"Ajout de la prise en charge pour {patient} par {employee}", "timestamp": self.get_timestamp(), "user": "Admin"})
+
+        self.refresh_table()
+        self.clear_form()
+        messagebox.showinfo("Succès", "Prise en charge ajoutée avec succès.")
+
+    def refresh_table(self):
+        for row in self.care_table.get_children():
+            self.care_table.delete(row)
+        for care in CARES:
+            self.care_table.insert("", "end", values=(care["id"], care["patient"], care["employee"], care["insurance"], care["date"]))
+
+    def clear_form(self):
+        self.patient_entry.delete(0, "end")
+        self.employee_entry.delete(0, "end")
+        self.insurance_entry.delete(0, "end")
+
+    def get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+if __name__ == "__main__":
+    app = LoginView()
+    app.mainloop()
